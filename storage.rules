@@ -1,0 +1,14 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    function signedIn() { return request.auth != null; }
+    function validFile() {
+      return request.resource.size < 10 * 1024 * 1024 && request.resource.contentType.matches('application/pdf|application/msword|application/vnd.openxmlformats-officedocument.wordprocessingml.document|application/vnd.ms-excel|application/vnd.openxmlformats-officedocument.spreadsheetml.sheet|text/csv|image/jpeg|image/png');
+    }
+    match /submissions/{userId}/{assignmentId}/{fileName} {
+      allow create: if signedIn() && request.auth.uid == userId && validFile();
+      allow read: if signedIn() && request.auth.uid == userId;
+      allow update, delete: if false;
+    }
+  }
+}

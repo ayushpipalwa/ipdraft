@@ -1,0 +1,31 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function ownUser(userId) { return signedIn() && request.auth.uid == userId; }
+    function isAdmin() { return signedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'; }
+
+    match /users/{userId} {
+      allow create: if ownUser(userId) && request.resource.data.role == 'student' && request.resource.data.courseOnlyUploadConsent == true;
+      allow read: if ownUser(userId) || isAdmin();
+      allow update: if (ownUser(userId) && request.resource.data.role == resource.data.role) || isAdmin();
+      allow delete: if isAdmin();
+    }
+    match /courses/{courseId} { allow read: if signedIn(); allow write: if isAdmin(); }
+    match /assignments/{assignmentId} { allow read: if signedIn(); allow write: if isAdmin(); }
+    match /enrolments/{enrolmentId} {
+      allow read: if (signedIn() && resource.data.studentId == request.auth.uid) || isAdmin();
+      allow create, update, delete: if isAdmin();
+    }
+    match /submissions/{submissionId} {
+      allow create: if signedIn() && request.resource.data.studentId == request.auth.uid && request.resource.data.status == 'submitted';
+      allow read: if (signedIn() && resource.data.studentId == request.auth.uid) || isAdmin();
+      allow update, delete: if isAdmin();
+    }
+    match /certificates/{certificateId} {
+      allow read: if (signedIn() && resource.data.studentId == request.auth.uid) || isAdmin();
+      allow write: if isAdmin();
+    }
+    match /batches/{batchId} { allow read: if signedIn(); allow write: if isAdmin(); }
+  }
+}
